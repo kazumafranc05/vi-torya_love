@@ -1,0 +1,653 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Сердце для тебя | Романтический сюрприз</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            user-select: none; /* легкая эстетика, чтобы текст не выделялся случайно */
+        }
+
+        body {
+            min-height: 100vh;
+            background: black;
+            overflow: hidden;
+            font-family: 'Segoe UI', 'Quicksand', system-ui, -apple-system, 'Helvetica Neue', sans-serif;
+            touch-action: manipulation; /* улучшение для тапов */
+        }
+
+        /* Canvas для звезд и фоновых эффектов (звезды всегда) */
+        #starCanvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            display: block;
+            z-index: 0;
+            pointer-events: none;
+        }
+
+        /* Контейнер для всего интерактива */
+        .ui-container {
+            position: relative;
+            z-index: 10;
+            width: 100%;
+            height: 100vh;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-direction: column;
+            pointer-events: auto;
+        }
+
+        /* Центральная кнопка-сердце (начальная) */
+        .heart-button {
+            background: none;
+            border: none;
+            cursor: pointer;
+            transition: transform 0.2s ease;
+            filter: drop-shadow(0 0 12px rgba(255, 111, 165, 0.6));
+            animation: gentleFloat 2s infinite ease-in-out;
+        }
+
+        .heart-button:active {
+            transform: scale(0.94);
+        }
+
+        .heart-svg {
+            width: 110px;
+            height: 110px;
+            fill: #ff6fa5;
+            transition: fill 0.2s;
+        }
+
+        .heart-button:hover .heart-svg {
+            fill: #ff8bb5;
+        }
+
+        .heart-text {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            color: white;
+            font-weight: 600;
+            font-size: 1.3rem;
+            letter-spacing: 1px;
+            text-shadow: 0 0 8px #ff3b7a;
+            pointer-events: none;
+            white-space: nowrap;
+        }
+
+        /* Иконка подарка */
+        .gift-icon {
+            font-size: 90px;
+            cursor: pointer;
+            filter: drop-shadow(0 0 20px #ff9ec0);
+            transition: transform 0.25s cubic-bezier(0.2, 0.9, 0.4, 1.1);
+            animation: gentleBounce 1.2s infinite ease;
+        }
+
+        .gift-icon:active {
+            transform: scale(0.9);
+        }
+
+        /* Бьющееся сердце (SVG) */
+        .beating-heart {
+            cursor: default;
+            filter: drop-shadow(0 0 20px #ff6fa5);
+            animation: heartbeat 1.2s infinite ease-in-out;
+            width: 130px;
+            height: 130px;
+        }
+
+        /* Письмо — блок с мягким фоном */
+        .love-letter {
+            position: fixed;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            max-width: 320px;
+            width: 85%;
+            background: rgba(255, 220, 230, 0.95);
+            backdrop-filter: blur(4px);
+            border-radius: 42px;
+            padding: 28px 24px;
+            text-align: center;
+            box-shadow: 0 25px 40px rgba(0, 0, 0, 0.3), 0 0 0 2px #ffb6d1 inset, 0 0 0 5px rgba(255, 192, 214, 0.6);
+            font-family: 'Segoe UI', 'Georgia', cursive;
+            z-index: 200;
+            opacity: 1;
+            transition: opacity 0.9s ease;
+            pointer-events: none;
+        }
+
+        .letter-content {
+            color: #a13e5c;
+            font-size: 1.25rem;
+            font-weight: 500;
+            line-height: 1.5;
+            word-break: break-word;
+            white-space: pre-wrap;
+        }
+
+        .letter-content p {
+            margin: 10px 0;
+        }
+
+        .letter-sign {
+            margin-top: 16px;
+            font-style: italic;
+            font-size: 1rem;
+            color: #c75a7a;
+        }
+
+        /* Контейнер для плавающих фраз */
+        .floating-phrases {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 25;
+            overflow: hidden;
+        }
+
+        .phrase-item {
+            position: absolute;
+            font-size: 1rem;
+            font-weight: 500;
+            color: #ffb7d0;
+            text-shadow: 0 0 6px #ff3b6f;
+            white-space: nowrap;
+            opacity: 0;
+            animation: fadeInOut 5s ease forwards;
+            pointer-events: none;
+            font-family: 'Segoe UI', 'Quicksand', sans-serif;
+            backdrop-filter: blur(1px);
+            background: rgba(0, 0, 0, 0.2);
+            padding: 4px 12px;
+            border-radius: 40px;
+            letter-spacing: 0.5px;
+        }
+
+        /* Эффект дождя из линий */
+        .rain-canvas {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            z-index: 5;
+        }
+
+        /* Анимации */
+        @keyframes heartbeat {
+            0% { transform: scale(1); }
+            25% { transform: scale(1.12); }
+            35% { transform: scale(1.18); }
+            45% { transform: scale(1.12); }
+            55% { transform: scale(1.05); }
+            65% { transform: scale(1); }
+            100% { transform: scale(1); }
+        }
+
+        @keyframes gentleFloat {
+            0% { transform: translateY(0px); }
+            50% { transform: translateY(-8px); }
+            100% { transform: translateY(0px); }
+        }
+
+        @keyframes gentleBounce {
+            0%, 100% { transform: translateY(0); }
+            50% { transform: translateY(-10px); }
+        }
+
+        @keyframes fadeInOut {
+            0% { opacity: 0; transform: translateY(10px) scale(0.9); }
+            15% { opacity: 1; transform: translateY(0) scale(1); }
+            80% { opacity: 1; transform: translateY(-15px) scale(1.02); }
+            100% { opacity: 0; transform: translateY(-35px) scale(0.96); }
+        }
+
+        /* Скрытые элементы */
+        .hidden {
+            display: none !important;
+        }
+
+        /* Адаптивность */
+        @media (max-width: 550px) {
+            .heart-svg {
+                width: 85px;
+                height: 85px;
+            }
+            .heart-text {
+                font-size: 1rem;
+            }
+            .gift-icon {
+                font-size: 70px;
+            }
+            .beating-heart {
+                width: 100px;
+                height: 100px;
+            }
+            .love-letter {
+                width: 90%;
+                padding: 20px 18px;
+            }
+            .letter-content {
+                font-size: 1rem;
+            }
+            .phrase-item {
+                font-size: 0.85rem;
+                padding: 3px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<canvas id="starCanvas"></canvas>
+<canvas id="rainCanvas" class="rain-canvas"></canvas>
+<div class="floating-phrases" id="floatingPhrasesContainer"></div>
+
+<div class="ui-container" id="uiContainer">
+    <!-- Кнопка-сердце начальная -->
+    <div id="heartButtonWrapper" style="position: relative; display: flex; justify-content: center;">
+        <button class="heart-button" id="startHeartBtn">
+            <svg class="heart-svg" viewBox="0 0 100 100" xmlns="http://www.w3.org/2000/svg">
+                <path d="M50,88.7 L44.6,83.8 C29.9,70.5 20,61.2 20,49.8 C20,40.6 27.2,33.3 36.3,33.3 C41.5,33.3 46.5,35.8 50,40 C53.5,35.8 58.5,33.3 63.7,33.3 C72.8,33.3 80,40.6 80,49.8 C80,61.2 70.1,70.5 55.4,83.8 L50,88.7Z"/>
+            </svg>
+            <span class="heart-text">Нажми</span>
+        </button>
+    </div>
+
+    <!-- Подарок (изначально скрыт) -->
+    <div id="giftWrapper" class="hidden" style="position: relative; display: flex; justify-content: center;">
+        <div class="gift-icon" id="giftButton">🎁</div>
+    </div>
+
+    <!-- Анимированное сердце (скрыто изначально) -->
+    <div id="animatedHeartWrapper" class="hidden" style="position: relative; display: flex; justify-content: center;">
+        <svg class="beating-heart" viewBox="0 0 100 100" fill="#ff6fa5" xmlns="http://www.w3.org/2000/svg">
+            <path d="M50,88.7 L44.6,83.8 C29.9,70.5 20,61.2 20,49.8 C20,40.6 27.2,33.3 36.3,33.3 C41.5,33.3 46.5,35.8 50,40 C53.5,35.8 58.5,33.3 63.7,33.3 C72.8,33.3 80,40.6 80,49.8 C80,61.2 70.1,70.5 55.4,83.8 L50,88.7Z"/>
+        </svg>
+    </div>
+</div>
+
+<audio id="bgMusic" loop preload="auto">
+    <source src="C:\Users\Kazuma_Franc\Desktop\vikilove\Какая ты есть.mp3" type="audio/mpeg">
+    <!-- fallback тихая мелодия, но если недоступна, просто тишина — пользователь может не заметить, но музыка романтичная. Используем надежный трек с лицензией Creative Commons -->
+</audio>
+
+<script>
+    (function(){
+        // === НАСТРОЙКИ ===
+        const girlName = "Викуля";   // Переменная с именем девушки ❤️ можно заменить на любое
+        const loveMessage = `Дорогая ${girlName}, ❤️\n\nЯ просто хочу сказать, как сильно я тебя люблю…\nТы — свет в моём сердце, и каждый миг с тобой — настоящее чудо. 🌸✨\n\nС любовью, твой Святик:3.`; 
+        
+        // Элементы DOM
+        const startBtnWrapper = document.getElementById('heartButtonWrapper');
+        const giftWrapper = document.getElementById('giftWrapper');
+        const heartWrapper = document.getElementById('animatedHeartWrapper');
+        const startHeartBtn = document.getElementById('startHeartBtn');
+        const giftButton = document.getElementById('giftButton');
+        const bgMusic = document.getElementById('bgMusic');
+        const uiContainer = document.getElementById('uiContainer');
+        
+        // Контейнер для фраз
+        const phrasesContainer = document.getElementById('floatingPhrasesContainer');
+        
+        // Состояния
+        let musicStarted = false;
+        let letterTimeout = null;
+        let giftOpened = false;    // флаг, чтобы подарок не активировался дважды
+        let rainAnimationActive = false;
+        let rainFrameId = null;
+        let starAnimationId = null;
+        
+        // --- Список романтических фраз (нежные сообщения)---
+        const romanticPhrases = [
+            "Я тебя люблю 💗", "Ты моё солнышко ☀️", "Ты моя вселенная 🌙",
+            "Ты моя радость 🌸", "Ты моё сердце 💓", "Ты моя любовь 💞",
+            "С тобой всё лучше 💗", "Ты невероятна 🌹", "Моя нежность ✨",
+            "Обожаю тебя 💖", "Ты мой смысл 🌷", "Сладкая моя 🍬",
+            "Ты как цветок 🌺", "Ты — мечта 🌙", "Ты моя сила 💫",
+            "Бесконечно люблю 💕", "Моя принцесса 👑", "Самая красивая 💗",
+            "Моё вдохновение 🌟", "С тобой тепло 🔥", "Навеки твой 💍",
+            "Ты мой рай 🌈"
+        ];
+        
+        // ---- Фоновые звезды (canvas) ----
+        function initStars() {
+            const canvas = document.getElementById('starCanvas');
+            const ctx = canvas.getContext('2d');
+            let stars = [];
+            let width = window.innerWidth;
+            let height = window.innerHeight;
+            
+            function resizeStars() {
+                width = window.innerWidth;
+                height = window.innerHeight;
+                canvas.width = width;
+                canvas.height = height;
+                generateStars();
+            }
+            
+            function generateStars() {
+                stars = [];
+                const starCount = Math.floor(width * height / 4000);
+                for(let i = 0; i < starCount; i++) {
+                    stars.push({
+                        x: Math.random() * width,
+                        y: Math.random() * height,
+                        radius: Math.random() * 2.2 + 0.8,
+                        alpha: Math.random() * 0.6 + 0.3,
+                        twinkleSpeed: 0.02 + Math.random() * 0.03,
+                        phase: Math.random() * Math.PI * 2
+                    });
+                }
+            }
+            
+            let time = 0;
+            function animateStars() {
+                if(!canvas.isConnected) return;
+                ctx.clearRect(0, 0, width, height);
+                ctx.fillStyle = "black";
+                ctx.fillRect(0, 0, width, height);
+                
+                for(let s of stars) {
+                    const twinkle = 0.5 + 0.5 * Math.sin(time * s.twinkleSpeed + s.phase);
+                    const finalAlpha = Math.min(s.alpha * (0.6 + twinkle * 0.5), 0.9);
+                    ctx.beginPath();
+                    ctx.arc(s.x, s.y, s.radius, 0, Math.PI * 2);
+                    ctx.fillStyle = `rgba(255, 210, 225, ${finalAlpha * 0.9})`;
+                    ctx.fill();
+                }
+                time += 0.03;
+                starAnimationId = requestAnimationFrame(animateStars);
+            }
+            
+            window.addEventListener('resize', () => {
+                resizeStars();
+            });
+            resizeStars();
+            animateStars();
+        }
+        
+        // ---- Дождь из розовых и красных линий (эффект) ----
+        let rainLines = [];
+        let rainCtx, rainCanvas;
+        function initRain() {
+            rainCanvas = document.getElementById('rainCanvas');
+            rainCtx = rainCanvas.getContext('2d');
+            let widthR = window.innerWidth;
+            let heightR = window.innerHeight;
+            
+            function resizeRain() {
+                widthR = window.innerWidth;
+                heightR = window.innerHeight;
+                rainCanvas.width = widthR;
+                rainCanvas.height = heightR;
+                // инициализируем линии заново
+                const lineCount = Math.floor(widthR / 14);
+                rainLines = [];
+                for(let i = 0; i < lineCount; i++) {
+                    rainLines.push({
+                        x: Math.random() * widthR,
+                        y: Math.random() * heightR - heightR,
+                        length: 12 + Math.random() * 25,
+                        speed: 3 + Math.random() * 7,
+                        color: Math.random() > 0.6 ? '#ff3b6f' : '#ff98b9',
+                        width: 1.8 + Math.random() * 2.2
+                    });
+                }
+            }
+            
+            function drawRain() {
+                if(!rainCanvas.isConnected) return;
+                if(!rainAnimationActive) return;
+                rainCtx.clearRect(0, 0, widthR, heightR);
+                for(let i = 0; i < rainLines.length; i++) {
+                    const l = rainLines[i];
+                    rainCtx.beginPath();
+                    rainCtx.moveTo(l.x, l.y);
+                    rainCtx.lineTo(l.x, l.y + l.length);
+                    rainCtx.strokeStyle = l.color;
+                    rainCtx.lineWidth = l.width;
+                    rainCtx.shadowBlur = 3;
+                    rainCtx.shadowColor = '#ff608c';
+                    rainCtx.stroke();
+                    
+                    // обновление позиции
+                    l.y += l.speed;
+                    if(l.y > heightR + 50) {
+                        l.y = -l.length - Math.random() * 30;
+                        l.x = Math.random() * widthR;
+                        l.color = Math.random() > 0.6 ? '#ff3b6f' : '#ff98b9';
+                    }
+                }
+                rainFrameId = requestAnimationFrame(drawRain);
+            }
+            
+            window.addEventListener('resize', () => {
+                resizeRain();
+            });
+            resizeRain();
+            // не запускаем анимацию до открытия подарка
+        }
+        
+        function startRainEffect() {
+            if(rainAnimationActive) return;
+            rainAnimationActive = true;
+            if(rainFrameId) cancelAnimationFrame(rainFrameId);
+            // пересоздаем линии для адаптива
+            const widthR = window.innerWidth;
+            const heightR = window.innerHeight;
+            const lineCount = Math.floor(widthR / 12) + 30;
+            rainLines = [];
+            for(let i = 0; i < lineCount; i++) {
+                rainLines.push({
+                    x: Math.random() * widthR,
+                    y: Math.random() * heightR - heightR,
+                    length: 10 + Math.random() * 28,
+                    speed: 2.5 + Math.random() * 8,
+                    color: Math.random() > 0.5 ? '#ff6f9e' : '#ffb0ca',
+                    width: 1.5 + Math.random() * 2.5
+                });
+            }
+            function drawFrame() {
+                if(!rainAnimationActive) return;
+                if(!rainCtx) return;
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+                rainCanvas.width = w;
+                rainCanvas.height = h;
+                rainCtx.clearRect(0, 0, w, h);
+                for(let l of rainLines) {
+                    rainCtx.beginPath();
+                    rainCtx.moveTo(l.x, l.y);
+                    rainCtx.lineTo(l.x, l.y + l.length);
+                    rainCtx.strokeStyle = l.color;
+                    rainCtx.lineWidth = l.width;
+                    rainCtx.shadowBlur = 2;
+                    rainCtx.stroke();
+                    l.y += l.speed;
+                    if(l.y > h + 60) {
+                        l.y = -l.length - 20;
+                        l.x = Math.random() * w;
+                        l.color = Math.random() > 0.5 ? '#ff6f9e' : '#ffb0ca';
+                    }
+                }
+                rainFrameId = requestAnimationFrame(drawFrame);
+            }
+            drawFrame();
+        }
+        
+        // Фразы появляются случайно по экрану
+        let phraseInterval = null;
+        function startFloatingPhrases() {
+            if(phraseInterval) clearInterval(phraseInterval);
+            phraseInterval = setInterval(() => {
+                const phraseText = romanticPhrases[Math.floor(Math.random() * romanticPhrases.length)];
+                const phraseDiv = document.createElement('div');
+                phraseDiv.className = 'phrase-item';
+                phraseDiv.innerText = phraseText;
+                // случайная позиция: 5% - 90% по ширине, 10% - 80% по высоте
+                const leftPos = Math.random() * (window.innerWidth - 160) + 20;
+                const topPos = Math.random() * (window.innerHeight - 100) + 20;
+                phraseDiv.style.left = leftPos + 'px';
+                phraseDiv.style.top = topPos + 'px';
+                phraseDiv.style.fontSize = (14 + Math.random() * 12) + 'px';
+                phraseDiv.style.opacity = '0';
+                phrasesContainer.appendChild(phraseDiv);
+                // удалить после анимации
+                setTimeout(() => {
+                    if(phraseDiv && phraseDiv.remove) phraseDiv.remove();
+                }, 5000);
+            }, 2200);
+        }
+        
+        // Письмо с печатным текстом
+        function showLetterWithTyping() {
+            // Создаем контейнер письма, если его нет
+            let letterBox = document.getElementById('romanticLetter');
+            if(letterBox) letterBox.remove();
+            
+            const letterDiv = document.createElement('div');
+            letterDiv.id = 'romanticLetter';
+            letterDiv.className = 'love-letter';
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'letter-content';
+            const textPara = document.createElement('p');
+            textPara.id = 'typingText';
+            contentDiv.appendChild(textPara);
+            const signDiv = document.createElement('div');
+            signDiv.className = 'letter-sign';
+            signDiv.innerText = '💌 навсегда твой';
+            contentDiv.appendChild(signDiv);
+            letterDiv.appendChild(contentDiv);
+            document.body.appendChild(letterDiv);
+            
+            const fullText = loveMessage;
+            let i = 0;
+            textPara.innerText = '';
+            function typeNext() {
+                if(i < fullText.length) {
+                    textPara.innerText += fullText.charAt(i);
+                    i++;
+                    setTimeout(typeNext, 55);
+                } else {
+                    // через 8 секунд письмо fade-out и исчезновение
+                    setTimeout(() => {
+                        if(letterDiv) {
+                            letterDiv.style.opacity = '0';
+                            setTimeout(() => {
+                                if(letterDiv && letterDiv.remove) letterDiv.remove();
+                            }, 900);
+                        }
+                    }, 8000);
+                }
+            }
+            typeNext();
+        }
+        
+        // Запуск всей романтики после клика по подарку
+        function onGiftOpen() {
+            if(giftOpened) return;
+            giftOpened = true;
+            
+            // 1. Подарок исчезает
+            giftWrapper.classList.add('hidden');
+            
+            // 2. Запуск музыки (если еще не запущена)
+            if(!musicStarted) {
+                bgMusic.volume = 0.45;
+                bgMusic.play().catch(e => console.log("Автовоспроизведение заблокировано, но пользователь уже кликнул, должно сработать", e));
+                musicStarted = true;
+            }
+            
+            // 3. Показать анимированное сердце (бьющееся)
+            heartWrapper.classList.remove('hidden');
+            
+            // 4. Запускаем эффект дождя из линий
+            startRainEffect();
+            
+            // 5. Запускаем появление нежных фраз
+            startFloatingPhrases();
+            
+            // 6. Показываем письмо с печатным текстом (по центру)
+            showLetterWithTyping();
+        }
+        
+        // Шаг 1: Нажатие на сердце (начальная кнопка)
+        function onHeartClick() {
+            // убираем кнопку-сердце
+            startBtnWrapper.classList.add('hidden');
+            // показываем подарок
+            giftWrapper.classList.remove('hidden');
+        }
+        
+        // Обработчики событий с поддержкой тач/клик
+        startHeartBtn.addEventListener('click', (e) => {
+            e.preventDefault();
+            onHeartClick();
+        });
+        startHeartBtn.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            onHeartClick();
+        }, {passive: false});
+        
+        giftButton.addEventListener('click', (e) => {
+            e.preventDefault();
+            if(!giftOpened) onGiftOpen();
+        });
+        giftButton.addEventListener('touchstart', (e) => {
+            e.preventDefault();
+            if(!giftOpened) onGiftOpen();
+        }, {passive: false});
+        
+        // Инициализация звезд и дождя (дождь пока не активен, но готов)
+        initStars();
+        initRain();   // подготовка canvas дождя, но без анимации
+        
+        // Делаем так, чтобы фон был черный и всегда красивый.
+        // Убираем случайные двойные нажатия
+        window.addEventListener('resize', () => {
+            if(rainAnimationActive && rainCanvas) {
+                // перестроить линии мягко
+                const w = window.innerWidth;
+                const h = window.innerHeight;
+                rainCanvas.width = w;
+                rainCanvas.height = h;
+                if(rainLines) {
+                    for(let i = 0; i < rainLines.length; i++) {
+                        if(rainLines[i].x > w) rainLines[i].x = w - 10;
+                        if(rainLines[i].y > h) rainLines[i].y = -20;
+                    }
+                }
+            }
+        });
+        
+        // Красивое завершение, если вдруг музыка не загрузится, но всё равно работает 
+        // Даем дополнительный soft-эффект: письмо по центру с плавностью
+        
+        // Для мобильных предотвращаем случайные зумы на двойной тап (не мешает)
+        document.addEventListener('touchmove', function(e) {
+            // ничего не блокируем сильно, но позволим скролла нет
+        }, {passive: false});
+        
+        // Дополнительно: сделать так, чтобы контент всегда по центру
+        // также гарантируем, что подарок и сердце корректно отображаются
+        console.log("Романтический сайт загружен, имя девушки: " + girlName);
+    })();
+</script>
+</body>
+</html>
